@@ -1,6 +1,6 @@
 # client-api
 
-Microsserviço responsável pelo cadastro e consulta de clientes no ecossistema JazzTech.
+Microsserviço responsável pelo cadastro e consulta de clientes no ecossistema CardApp.
 
 ## Visão Geral
 
