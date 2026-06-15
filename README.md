@@ -4,63 +4,88 @@ Microsserviço responsável pelo cadastro e consulta de clientes no ecossistema 
 
 ## Visão Geral
 
-A API gerencia o cadastro de **clientes** com enriquecimento automático de endereço via integração com a API pública **ViaCep**. O CPF é validado e formatado automaticamente; o endereço é preenchido a partir do CEP informado. Este serviço é o ponto de entrada do ecossistema — tanto o `credit-analysis-api` quanto o `card-holder-api` dependem dos clientes aqui cadastrados.
+Gerencia o cadastro de **clientes** com enriquecimento automático de endereço via **ViaCep**. O CPF é validado; o endereço (rua, bairro, cidade, estado) é preenchido automaticamente a partir do CEP informado. Este é o ponto de entrada do ecossistema — `credit-analysis-api` e `card-holder-api` dependem dos clientes aqui cadastrados.
 
 ## Stack
 
 - **Java 17** + **Spring Boot 3.0.6**
 - **Spring Cloud OpenFeign** — integração com ViaCep
-- **Spring Data JPA** + **PostgreSQL** + **Undertow** (no lugar de Tomcat)
-- **MapStruct** — mapeamento de objetos em 3 camadas (request → domain → entity)
-- **Lombok** — redução de boilerplate
-- **JUnit 5** + **Mockito** — testes unitários
+- **Spring Data JPA** + **PostgreSQL** + **Undertow**
+- **MapStruct** — mapeamento request → domain → entity
+- **Lombok** | **JUnit 5** + **Mockito**
 
-## Pré-requisitos
+## Rodando
 
-- Java 17+
-- Docker + Docker Compose
+### Opção 1 — Docker Compose (recomendado)
 
-## Rodando localmente
+Sobe todos os serviços do ecossistema de uma vez. Ver [README raiz](../README.md).
+
+### Opção 2 — Local
+
+**Pré-requisitos:** Java 17+, Docker, Maven 3.8+
 
 ```bash
-# Subir banco de dados PostgreSQL
-make local-env-create
+# 1. Subir o banco PostgreSQL (porta 5432)
+docker-compose -f stack.yaml up -d
 
-# Iniciar a aplicação
-./mvnw spring-boot:run          # Linux/Mac
-mvnw.cmd spring-boot:run        # Windows
+# 2. Criar as tabelas
+docker cp data/ddl.sql postgres:/tmp/ddl.sql
+docker exec postgres psql -U admin -d postgres -f /tmp/ddl.sql
+
+# 3. Iniciar a aplicação
+mvn spring-boot:run
+# ou, se preferir o wrapper:
+./mvnw spring-boot:run      # Linux/Mac
+mvnw.cmd spring-boot:run    # Windows
+
+# Parar o banco
+docker-compose -f stack.yaml down
 ```
 
 A API fica disponível em `http://localhost:8080`.
 
 ## Endpoints
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `POST` | `/v1.0/clients` | Criar cliente (enriquece endereço via ViaCep) |
-| `GET` | `/v1.0/clients/{id}` | Buscar cliente por ID |
-| `GET` | `/v1.0/clients?cpf=xxx` | Buscar por CPF ou listar todos |
+| Método | Endpoint | Status | Descrição |
+|--------|----------|--------|-----------|
+| `POST` | `/v1.0/clients` | 201 | Criar cliente |
+| `GET` | `/v1.0/clients/{id}` | 200 | Buscar por ID |
+| `GET` | `/v1.0/clients?cpf=xxx` | 200 | Buscar por CPF ou listar todos |
+
+### Exemplo — Criar cliente
+
+```http
+POST /v1.0/clients
+Content-Type: application/json
+
+{
+  "name": "João Silva",
+  "cpf": "12345678900",
+  "birthdate": "1990-05-15",
+  "address": {
+    "cep": "01310-100",
+    "houseNumber": 1000,
+    "complement": "Apto 42"
+  }
+}
+```
 
 ## Banco de dados
 
-O schema está em `data/ddl.sql`. PostgreSQL sobe via Docker na porta `5432`.
-
-```bash
-make local-env-create   # Sobe o ambiente
-make local-env-destroy  # Derruba o ambiente
-```
+Schema em `data/ddl.sql`. PostgreSQL na porta `5432`, usuário `admin`, senha `senha123`, banco `postgres`.
 
 ## Testes
 
 ```bash
-./mvnw test           # Roda todos os testes
-./mvnw verify         # Testes + relatório JaCoCo (target/site/jacoco/)
+mvn test              # Todos os testes
+mvn verify            # Testes + relatório JaCoCo (target/site/jacoco/)
+mvn checkstyle:check  # Verificar estilo
 ```
 
 ## Microsserviços relacionados
 
 | Serviço | Porta | Função |
 |---------|-------|--------|
-| `client-api` | 8080 | **Este serviço** — cadastro de clientes |
-| `credit-analysis-api` | 9001 | Análise e aprovação de crédito |
-| `card-holder-api` | 9002 | Portadores e cartões de crédito |
+| `client-api` | 8080 | **Este serviço** |
+| `credit-analysis-api` | 9001 | Análise de crédito |
+| `card-holder-api` | 9002 | Portadores e cartões |
